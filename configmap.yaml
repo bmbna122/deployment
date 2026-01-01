@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-config
+data:
+  DB_HOST: "lab-db"
+  DB_NAME: "labdb"
+  DB_USER: "user"

@@ -1,0 +1,10 @@
+#Large files
+*.tar
+*.iso
+
+# Python
+_pycahe_/
+*.py[cod]
+*$py.class
+venv/
+.env/
