@@ -2,18 +2,35 @@ apiVersion: v1
 kind: Service
 metadata:
   name: lab-app
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
 spec:
   type: ClusterIP
   ports:
   - port: 8000
     targetPort: 8000
+    name: http
   selector:
     app: lab-app
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: lab-app-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: lab-app
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: lab-app
+  annotations:
+    kubernetes.io/change-cause: "v1.1 - Add motitoring and observability features"
 spec:
   replicas: 3
   strategy:
@@ -28,6 +45,12 @@ spec:
     metadata:
       labels:
         app: lab-app
+        app-version: v1.1
+        tier: frontend
+        monitoring: enabled
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
     spec:
       containers:
       - name: lab-app
@@ -35,6 +58,8 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
+          name: http
+          protocol: TCP
         env:
         - name: DB_HOST
           valueFrom:
@@ -56,15 +81,63 @@ spec:
             secretKeyRef:
               name: lab-secrets
               key: db-password
+        # Application metadata
+        - name: APP_NAME
+          value: "Lab Data store"
+        - name: APP_VERSION
+          value: "1.1.0"
+        - name: APP_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: LOG_FORMAT
+          value: "json"
+        # Observability
+        - name: ENABLE_METRICS
+          value: "true"
+        - name: TRACE_ENABLED
+          value: "true"
+        # Pod metadata via field references
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namspace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          failureThreshold: 12
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 20
+          timeoutSeconds: 3
+          failureThreshold: 3
