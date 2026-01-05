@@ -105,7 +105,7 @@ spec:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.namspace
+              fieldPath: metadata.namespace
         - name: POD_IP
           valueFrom:
             fieldRef:
